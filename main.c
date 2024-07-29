@@ -36,6 +36,7 @@ struct Audio{
 struct Speaker{
     int nationality;
     char* nationality_name; //pointer to array of chars (i.e. first element in array)
+    size_t len_nationality_name;
     int number;
     struct Audio* audio;
 };
@@ -67,6 +68,19 @@ const char* concat(const char* s1, size_t len_s1, const char* s2, size_t len_s2)
     return res;
 }
 
+int stringToInt(const char* s, size_t s_len){
+    int res = 0;
+    int temp = 0;
+    int mult = 1;
+    for(int i=s_len-2; i>-1;i--){//-2 since we start from before the \0
+        char c = s[i];
+        temp = s[i] - '0';
+        res += (temp*mult);
+        mult *= 10;
+    }
+    return res;
+}
+
 void extractMetadata(const char* filename, size_t filename_length, struct Speaker* currentSpeaker){
     char digit[10] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9'};
     size_t digit_len = 10;
@@ -84,10 +98,48 @@ void extractMetadata(const char* filename, size_t filename_length, struct Speake
     }
     current -= 1;//index of first digit 
     //we want 0 to current-1
-    //and current to filename_length
+    char* nationality_name = malloc((current+1)*sizeof(char));
+    strncpy(nationality_name, filename, current);
+    nationality_name[current] = '\0';
+    //and current to filename_length - 4 (the .mp3)
+    char* number_chararr = malloc(((filename_length-4-current))*sizeof(char));
+    strncpy(number_chararr, filename+current, (filename_length-4-(current+1)));//-2 from -4(.mp3) +1(len) +1(\0)
+    number_chararr[(filename_length-4-(current+1))] = '\0';
+    //paseint
+    int number = stringToInt(number_chararr, ((filename_length-current)-4)); //TODO: this may have to be on the heap??? deallocated at end of this function?
 
+    //set data
+    currentSpeaker->nationality_name = nationality_name;
+    currentSpeaker->len_nationality_name = current+1;
+    currentSpeaker->number = number;
+
+    //free memory
+    free(number_chararr);
 }
 
+int getlenspeakerarr(char* d_name, size_t len){
+    int res = 0;
+    DIR* d_stream;
+    struct dirent* d_entry;
+    d_stream = opendir(d_name);
+    if(d_stream != NULL){
+        d_entry = readdir(d_stream);
+        while(d_entry != NULL){
+            if(d_entry->d_name[0] != '.'){
+                res += 1;
+            }
+            d_entry = readdir(d_stream);
+        }
+    }
+    closedir(d_stream);
+    return res;
+}
+
+void extractAudioData(const char* concat_filename, size_t len_concat_filename, struct Speaker* currentSpeaker){
+    FILE* fptr;
+    fptr = fopen(concat_filename, "r");
+    fclose(fptr);
+}
 
 int main(){
     //for every file in dataset/recording
@@ -96,25 +148,41 @@ int main(){
     FILE *fptr; //file ptr for each dirent
     char d_name[] = "./dataset/recordings/";
     size_t len_d_name = sizeof(d_name)/sizeof(d_name[0]);
+    size_t len_speakerArr = getlenspeakerarr(d_name, len_d_name);
+    struct Speaker** speakerArr = malloc(len_speakerArr*sizeof(struct Speaker*));
     d_stream = opendir(d_name);//open stream into recordings
 
+    int speakerArrIndex = 0;
     if(d_stream != NULL){//if our stream is correctly opened
             d_entry = readdir(d_stream);//read first file name
             while(d_entry != NULL){
                 //READ FILE NAME
                 size_t *filename_length = malloc(sizeof(size_t));
                 const char* filename = getfilename(d_entry->d_name, filename_length);
-                //EXTRACT METADATA FROM FILE NAME
-                struct Speaker* currentSpeaker = malloc(sizeof(struct Speaker));
-                extractMetadata(filename, *filename_length, currentSpeaker);
-                
-                //OPEN FILE USING FILE NAME
-                const char* concat_filename = concat(d_name, len_d_name ,filename, *filename_length);
-                fptr = fopen(concat_filename, "r");
-                //File processing
-                fclose(fptr);
+                //skip any files starting with .
+                if(filename[0] != '.'){
+                    //EXTRACT METADATA FROM FILE NAME
+                    struct Speaker* currentSpeaker = malloc(sizeof(struct Speaker));
+                    extractMetadata(filename, *filename_length, currentSpeaker);
+                    printf("%i\n", currentSpeaker->number);
+                    //OPEN FILE USING FILE NAME
+                    const char* concat_filename = concat(d_name, len_d_name ,filename, *filename_length);
+                    //File processing
+                    extractAudioData(concat_filename, len_d_name+*filename_length-1, currentSpeaker);
+                    
+                    //Save to data structure
+                    speakerArr[speakerArrIndex] = currentSpeaker;
+                    speakerArrIndex += 1;
+
+                    //freeing memory
+                    free((char*)concat_filename);
+                    
+                }
 
                 d_entry = readdir(d_stream);
+                //freeing memory used on this iteration...
+                free(filename_length);
+                free((char*)filename);//we are allowed to cast const away only when using free? we want filename to be const throughout its lifetime
             }
         closedir(d_stream);
     }
@@ -128,5 +196,10 @@ int main(){
     //get id from filename
     //TODO: create different model based on gender
     //extract audio samples, using minimp3
-    
+    for(int i=0; i<len_speakerArr; i++){
+        free(speakerArr[i]->nationality_name);
+        //TODO: some freeing of audio
+        free(speakerArr[i]);
+    }
+    free(speakerArr);
 }
