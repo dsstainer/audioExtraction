@@ -67,6 +67,28 @@ const char* concat(const char* s1, size_t len_s1, const char* s2, size_t len_s2)
     return res;
 }
 
+void extractMetadata(const char* filename, size_t filename_length, struct Speaker* currentSpeaker){
+    char digit[10] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9'};
+    size_t digit_len = 10;
+    int current = 0;
+    bool numFound = false;
+    while(numFound == false){
+        //Check whether current is a number
+        for(int i=0; i<digit_len; i++){
+            if(filename[current] == digit[i]){
+                numFound = true;
+                break;
+            }
+        }
+        current += 1;
+    }
+    current -= 1;//index of first digit 
+    //we want 0 to current-1
+    //and current to filename_length
+
+}
+
+
 int main(){
     //for every file in dataset/recording
     DIR *d_stream;//directory stream
@@ -83,7 +105,8 @@ int main(){
                 size_t *filename_length = malloc(sizeof(size_t));
                 const char* filename = getfilename(d_entry->d_name, filename_length);
                 //EXTRACT METADATA FROM FILE NAME
-
+                struct Speaker* currentSpeaker = malloc(sizeof(struct Speaker));
+                extractMetadata(filename, *filename_length, currentSpeaker);
                 
                 //OPEN FILE USING FILE NAME
                 const char* concat_filename = concat(d_name, len_d_name ,filename, *filename_length);
