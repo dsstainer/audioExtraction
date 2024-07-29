@@ -1,3 +1,11 @@
+//Use the High-level API
+#include <stdlib.h> //for malloc
+#include <stdio.h> //Files from standard library with <>
+#include <dirent.h> //for directory streams
+#include <string.h> //for string functions eg strcpy
+#include <stdbool.h> //for booleans
+#include "minimp3/minimp3_ex.h" //Header files from diff directories with ""
+
 //Aim: take data dataset/speakers_all and dataset/recordings 
 //We want a data structure containing all the data
 //What should the format of the ds be?
@@ -14,17 +22,27 @@
     //nationality
     //id
     //other metadata?  e.g. time of clip/gender??
+struct Sample{
+    int intensity;
+    int sequence_num;
+};
+struct Audio{
+    int encoding_rate;
+    int bit_depth;
+    bool stereo;
+    struct Sample** samples;//pointer to array of pointers to samples
+    //MFCCs?
+};
+struct Speaker{
+    int nationality;
+    char* nationality_name; //pointer to array of chars (i.e. first element in array)
+    int number;
+    struct Audio* audio;
+};
 
 //enum CountryID
 //We need to first use our mp3 decoder from github to convert mp3 data to the same form as our data structure above.
 
-//Use the High-level API
-#include <stdlib.h> //for malloc
-#include <stdio.h> //Files from standard library with <>
-#include <dirent.h> //for directory streams
-#include <string.h> //for string functions eg strcpy
-#include <stdbool.h> //for booleans
-#include "minimp3/minimp3_ex.h" //Header files from diff directories with ""
 
 //First see if we can run a main function
 
