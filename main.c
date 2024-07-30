@@ -4,7 +4,9 @@
 #include <dirent.h> //for directory streams
 #include <string.h> //for string functions eg strcpy
 #include <stdbool.h> //for booleans
+#define MINIMP3_IMPLEMENTATION
 #include "minimp3/minimp3_ex.h" //Header files from diff directories with ""
+#include "minimp3/minimp3.h"
 
 //Aim: take data dataset/speakers_all and dataset/recordings 
 //We want a data structure containing all the data
@@ -22,15 +24,12 @@
     //nationality
     //id
     //other metadata?  e.g. time of clip/gender??
-struct Sample{
-    int intensity;
-    int sequence_num;
-};
 struct Audio{
-    int encoding_rate;
-    int bit_depth;
-    bool stereo;
-    struct Sample** samples;//pointer to array of pointers to samples
+    int hz;
+    int bitrate;
+    int channels;
+    int num_samples;
+    mp3d_sample_t* samples;//array of int16_ts (same as mp3d_sample_t)
     //MFCCs?
 };
 struct Speaker{
@@ -137,8 +136,21 @@ int getlenspeakerarr(char* d_name, size_t len){
 
 void extractAudioData(const char* concat_filename, size_t len_concat_filename, struct Speaker* currentSpeaker){
     FILE* fptr;
-    fptr = fopen(concat_filename, "r");
-    fclose(fptr);
+    mp3dec_t mp3d;
+    mp3dec_file_info_t info;
+    if(mp3dec_load(&mp3d, concat_filename, &info, NULL, NULL)){
+        //error
+        printf("Error opening file");
+    }
+    //info.buffer is an array of size info.samples which contains all the audio samples.
+    //We can set our audio to this.
+    struct Audio *a = malloc(sizeof(struct Audio));
+    a->samples = info.buffer;
+    a->num_samples = info.samples;
+    a->bitrate = info.avg_bitrate_kbps;
+    a->channels = info.channels;
+    a->hz = info.hz;
+    currentSpeaker->audio = a;
 }
 
 int main(){
@@ -159,12 +171,12 @@ int main(){
                 //READ FILE NAME
                 size_t *filename_length = malloc(sizeof(size_t));
                 const char* filename = getfilename(d_entry->d_name, filename_length);
+                printf("%i / %i\n", speakerArrIndex+1, len_speakerArr);
                 //skip any files starting with .
                 if(filename[0] != '.'){
                     //EXTRACT METADATA FROM FILE NAME
                     struct Speaker* currentSpeaker = malloc(sizeof(struct Speaker));
                     extractMetadata(filename, *filename_length, currentSpeaker);
-                    printf("%i\n", currentSpeaker->number);
                     //OPEN FILE USING FILE NAME
                     const char* concat_filename = concat(d_name, len_d_name ,filename, *filename_length);
                     //File processing
@@ -199,7 +211,10 @@ int main(){
     for(int i=0; i<len_speakerArr; i++){
         free(speakerArr[i]->nationality_name);
         //TODO: some freeing of audio
+        free(speakerArr[i]->audio->samples);// i.e. free(info.buffer)
+        free(speakerArr[i]->audio);
         free(speakerArr[i]);
+        scanf("Hi");
     }
     free(speakerArr);
 }
